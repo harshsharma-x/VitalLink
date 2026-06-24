@@ -5,7 +5,8 @@
       "Bash(docker --version)",
       "Bash(pip3 --version)",
       "Bash(npm --version)",
-      "Bash(npx --version)"
+      "Bash(npx --version)",
+      "Bash(pip3 show *)"
     ]
   }
 }

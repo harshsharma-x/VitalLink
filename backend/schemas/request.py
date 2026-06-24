@@ -3,6 +3,9 @@ from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
+URGENCY_VALUES = {"low", "medium", "high", "critical", "urgent", "scheduled", "day", "planned"}
+
+
 class EmergencyRequestCreate(BaseModel):
     blood_group: str = Field(..., max_length=10)
     units_required: int = Field(default=1, ge=1)
@@ -10,7 +13,8 @@ class EmergencyRequestCreate(BaseModel):
     hospital_address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    urgency: str = Field(default="high", pattern="^(low|medium|high|critical)$")
+    urgency: str = Field(default="critical", max_length=20)
+
 
 class EmergencyRequestResponse(BaseModel):
     id: UUID
@@ -28,6 +32,7 @@ class EmergencyRequestResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class EmergencyRequestCancel(BaseModel):
     status: str = "cancelled"

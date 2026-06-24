@@ -7,6 +7,7 @@ class LoginRequest(BaseModel):
     phone: str = Field(..., min_length=10, max_length=20)
     role: str = Field(..., pattern="^(patient|donor)$")
     blood_group: Optional[str] = Field(None, max_length=10)
+    firebase_token: Optional[str] = Field(None, description="Firebase Phone Auth ID token")
 
 class LoginResponse(BaseModel):
     token: str

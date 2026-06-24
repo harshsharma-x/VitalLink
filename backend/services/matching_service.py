@@ -111,6 +111,10 @@ def start_matching(db: Session, request_id: UUID) -> dict:
 
     db.commit()
 
+    # Refresh all match objects so attributes are available for serialization
+    for match in created_matches:
+        db.refresh(match)
+
     # Send push notifications to matched donors
     try:
         from services.notification_service import alert_donor
@@ -170,6 +174,12 @@ def reject_match(db: Session, match_id: UUID, donor_id: UUID) -> Match:
         raise HTTPException(status_code=400, detail="Match already processed")
 
     match.status = "rejected"
+
+    # Penalise ghosting/decline: small reliability score drop
+    donor = db.query(Donor).filter(Donor.id == donor_id).first()
+    if donor:
+        donor.reliability_score = max(0, (donor.reliability_score or 50) - 2)
+
     db.commit()
     db.refresh(match)
     return match

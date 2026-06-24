@@ -4,14 +4,32 @@ from schemas.request import EmergencyRequestCreate, EmergencyRequestCancel
 from fastapi import HTTPException, status
 from uuid import UUID
 from typing import Optional
+from datetime import datetime, timezone
+
+_DAILY_REQUEST_LIMIT = 10
 
 def create_request(db: Session, patient_id: UUID, request_data: EmergencyRequestCreate) -> EmergencyRequest:
-    # Verify patient exists
     user = db.query(User).filter(User.id == patient_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Patient not found")
     if user.role != "patient":
         raise HTTPException(status_code=400, detail="User is not a patient")
+
+    # Anti-abuse: 10 requests per phone per calendar day (UTC)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_count = (
+        db.query(EmergencyRequest)
+        .filter(
+            EmergencyRequest.patient_id == patient_id,
+            EmergencyRequest.created_at >= today_start,
+        )
+        .count()
+    )
+    if today_count >= _DAILY_REQUEST_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Daily limit reached ({_DAILY_REQUEST_LIMIT} requests/day). Contact support if this is a genuine emergency.",
+        )
 
     request = EmergencyRequest(
         patient_id=patient_id,

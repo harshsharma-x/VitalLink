@@ -44,10 +44,23 @@ CREATE TABLE IF NOT EXISTS blood_banks (
     stock_op    INTEGER DEFAULT 0,
     stock_on    INTEGER DEFAULT 0,
     stock_abp   INTEGER DEFAULT 0,
-    stock_abn   INTEGER DEFAULT 0
+    stock_abn   INTEGER DEFAULT 0,
+    last_restock_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_bb_state ON blood_banks(state);
 CREATE INDEX IF NOT EXISTS idx_bb_city  ON blood_banks(city);
+
+CREATE TABLE IF NOT EXISTS stock_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    bank_id     INTEGER NOT NULL,
+    blood_group TEXT NOT NULL,
+    units_delta INTEGER NOT NULL,
+    units_after INTEGER NOT NULL,
+    event_type  TEXT NOT NULL DEFAULT 'manual',
+    recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_sh_bank    ON stock_history(bank_id);
+CREATE INDEX IF NOT EXISTS idx_sh_bank_bg ON stock_history(bank_id, blood_group);
 """
 
 # Column names for the 8 blood group stocks in order
@@ -109,10 +122,19 @@ def _seed(conn: sqlite3.Connection):
     logger.info("Seeded %d blood banks from CSV → bloodbanks.db", len(rows))
 
 
+def _migrate(conn: sqlite3.Connection):
+    """Add new columns to existing databases."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(blood_banks)")}
+    if "last_restock_at" not in cols:
+        conn.execute("ALTER TABLE blood_banks ADD COLUMN last_restock_at TEXT")
+        conn.commit()
+
+
 def _init() -> sqlite3.Connection:
     conn = sqlite3.connect(os.path.abspath(_DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(_DDL)
+    _migrate(conn)
     if conn.execute("SELECT COUNT(*) FROM blood_banks").fetchone()[0] == 0:
         _seed(conn)
     return conn
@@ -247,15 +269,61 @@ def get_by_id(bank_id: int) -> Optional[dict]:
     return _row_to_dict(r) if r else None
 
 
-def update_stock(bank_id: int, blood_group: str, units: int) -> Optional[dict]:
+def update_stock(bank_id: int, blood_group: str, units: int,
+                 event_type: str = "manual") -> Optional[dict]:
     """Adjust stock for a single blood group (add positive, subtract negative)."""
     col = _stock_col(blood_group)
     if not col:
         return None
     conn = _get_conn()
+    before = conn.execute(f"SELECT {col} FROM blood_banks WHERE id=?", (bank_id,)).fetchone()
+    if not before:
+        return None
+    units_before = before[0]
     conn.execute(
-        f"UPDATE blood_banks SET {col} = MAX(0, {col} + ?) WHERE id = ?",
+        f"UPDATE blood_banks SET {col} = MAX(0, {col} + ?), last_restock_at = datetime('now') WHERE id = ?",
         (units, bank_id),
     )
+    after = conn.execute(f"SELECT {col} FROM blood_banks WHERE id=?", (bank_id,)).fetchone()
+    units_after = after[0] if after else max(0, units_before + units)
+    actual_delta = units_after - units_before
+    if actual_delta != 0:
+        conn.execute(
+            "INSERT INTO stock_history (bank_id, blood_group, units_delta, units_after, event_type) VALUES (?,?,?,?,?)",
+            (bank_id, blood_group, actual_delta, units_after, event_type),
+        )
     conn.commit()
     return get_by_id(bank_id)
+
+
+def get_stock_history(bank_id: int, blood_group: Optional[str] = None, limit: int = 50) -> list[dict]:
+    """Return recent stock change history for a blood bank."""
+    conn = _get_conn()
+    if blood_group:
+        rows = conn.execute(
+            "SELECT * FROM stock_history WHERE bank_id=? AND blood_group=? ORDER BY id DESC LIMIT ?",
+            (bank_id, blood_group, limit),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM stock_history WHERE bank_id=? ORDER BY id DESC LIMIT ?",
+            (bank_id, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_days_since_restock(bank_id: int) -> float:
+    """Days since the last stock update for this bank."""
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT last_restock_at FROM blood_banks WHERE id=?", (bank_id,)
+    ).fetchone()
+    if not row or not row["last_restock_at"]:
+        return 7.0
+    import datetime as dt
+    try:
+        ts = dt.datetime.fromisoformat(row["last_restock_at"])
+        diff = (dt.datetime.utcnow() - ts).total_seconds() / 86400
+        return round(max(0.0, diff), 2)
+    except Exception:
+        return 7.0
