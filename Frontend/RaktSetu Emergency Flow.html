@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VitalLink — Emergency Flow Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #EFEDEA; }
+  * { -webkit-font-smoothing: antialiased; }
+  @keyframes rsPulse {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(2.6); opacity: 0; }
+  }
+  .rs-pulse { animation: rsPulse 1.6s ease-out infinite; }
+  @keyframes rsRing {
+    0% { transform: scale(0.55); opacity: 0.8; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  .rs-ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid currentColor; pointer-events: none;
+    animation: rsRing 1.8s ease-out infinite;
+  }
+  @keyframes rsAlarmGlow {
+    0%, 100% { box-shadow: inset 0 0 0 0 rgba(255,255,255,0); }
+    50% { box-shadow: inset 0 0 60px 0 rgba(255,255,255,0.14); }
+  }
+  .rs-alarm { animation: rsAlarmGlow 1.2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .rs-pulse, .rs-ring, .rs-alarm { animation: none; }
+    .rs-ring { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="android-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="raktsetu-shared.jsx"></script>
+<script type="text/babel" src="raktsetu-patient.jsx"></script>
+<script type="text/babel" src="raktsetu-donor.jsx"></script>
+<script type="text/babel" src="raktsetu-appshell.jsx"></script>
+<script type="text/babel" src="raktsetu-patient-extra.jsx"></script>
+<script type="text/babel" src="raktsetu-donor-extra.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accent": "#C0152A",
+  "alertStyle": "Alarm",
+  "language": "English",
+  "travelSec": 14
+}/*EDITMODE-END*/;
+
+const STAGE_STEP = { idle: -1, form: 0, searching: 1, alert: 2, tracking: 3, arrived: 4, complete: 5 };
+const PATIENT_TABS = [
+  { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'banks', label: 'Banks', icon: 'bank' },
+  { id: 'requests', label: 'Requests', icon: 'list' },
+  { id: 'profile', label: 'Profile', icon: 'user' },
+];
+const DONOR_TABS = [
+  { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'history', label: 'Donations', icon: 'list' },
+  { id: 'profile', label: 'Profile', icon: 'user' },
+];
+const RAIL = ['Request raised', 'Urgency scored', 'Donors alerted', 'Donor en route', 'At hospital', 'Donated'];
+const PHONE_SCALE = 0.7;
+
+function StepRail({ stage, accent }) {
+  const cur = STAGE_STEP[stage];
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {RAIL.map((label, i) => {
+        const done = i < cur || stage === 'complete';
+        const active = i === cur && stage !== 'complete';
+        return (
+          <React.Fragment key={i}>
+            {i > 0 && <span style={{ width: 16, height: 1.5, background: done || active ? accent : RS.line, opacity: done || active ? 0.5 : 1 }}></span>}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+              fontFamily: RS_FONT, padding: '6px 12px', borderRadius: 100,
+              background: active ? accent : done ? RS.steal : '#fff',
+              color: active ? '#fff' : done ? RS.teal : RS.faint,
+              border: `1px solid ${active ? accent : done ? '#BFE3D6' : RS.line}`,
+              transition: 'all 250ms',
+            }}>
+              {done && <span style={{ fontSize: 10 }}>✓</span>}{label}
+            </span>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function Phone({ label, sub, accent, children, screenLabel }) {
+  const W = 412, H = 892;
+  return (
+    <div data-screen-label={screenLabel} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+      <div style={{ width: W * PHONE_SCALE, height: H * PHONE_SCALE, position: 'relative' }}>
+        <div style={{ transform: `scale(${PHONE_SCALE})`, transformOrigin: 'top left', width: W, height: H }}>
+          {children}
+        </div>
+      </div>
+      <div style={{ textAlign: 'center', fontFamily: RS_FONT }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: RS.ink }}>{label}</div>
+        <div style={{ fontSize: 12, color: RS.mid, marginTop: 1 }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const accent = t.accent;
+  const alertStyle = t.alertStyle.toLowerCase();
+  const lang = t.language === 'English' ? 'en' : 'bi';
+
+  const [stage, setStage] = useState('idle');
+  const [mode, setMode] = useState('app'); // 'app' | 'onboarding'
+  const [patientTab, setPatientTab] = useState('home');
+  const [donorTab, setDonorTab] = useState('home');
+  const [available, setAvailable] = useState(true);
+  const [donorsAlerted, setDonorsAlerted] = useState(0);
+  const [urgencyScore, setUrgencyScore] = useState(0);
+  const [radiusKm, setRadiusKm] = useState(5);
+  const [alertSec, setAlertSec] = useState(300);
+  const [progress, setProgress] = useState(0);
+  const [auto, setAuto] = useState(false);
+  const [callToast, setCallToast] = useState(false);
+
+  const reset = () => {
+    setStage('idle'); setDonorsAlerted(0); setUrgencyScore(0); setRadiusKm(5);
+    setAlertSec(300); setProgress(0); setCallToast(false);
+    setPatientTab('home'); setDonorTab('home');
+  };
+
+  // pull both phones back to Home when the story advances
+  useEffect(() => {
+    if (stage !== 'idle') { setPatientTab('home'); setDonorTab('home'); }
+  }, [stage]);
+  const submit = () => { setAvailable(true); setDonorsAlerted(0); setUrgencyScore(0); setRadiusKm(5); setStage('searching'); };
+  const accept = () => { setProgress(0); setStage('tracking'); };
+  const decline = () => { setDonorsAlerted(0); setStage('searching'); };
+  const arrive = () => setStage('arrived');
+  const finish = () => setStage('complete');
+  const call = () => { setCallToast(true); };
+
+  // searching: animate counters, then ring the donor
+  useEffect(() => {
+    if (stage !== 'searching') return;
+    const score = setTimeout(() => setUrgencyScore(82), 700);
+    const radius = setTimeout(() => setRadiusKm(10), 1700);
+    const count = setInterval(() => setDonorsAlerted(d => (d >= 74 ? d : d + Math.ceil(Math.random() * 7))), 140);
+    const ring = setTimeout(() => { setAlertSec(300); setStage('alert'); }, 3000);
+    return () => { clearTimeout(score); clearTimeout(radius); clearTimeout(ring); clearInterval(count); };
+  }, [stage]);
+
+  // alert countdown
+  useEffect(() => {
+    if (stage !== 'alert') return;
+    const iv = setInterval(() => setAlertSec(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(iv);
+  }, [stage]);
+
+  // donor travel
+  useEffect(() => {
+    if (stage !== 'tracking') return;
+    const iv = setInterval(() => setProgress(p => Math.min(1, p + 0.25 / t.travelSec)), 250);
+    return () => clearInterval(iv);
+  }, [stage, t.travelSec]);
+
+  // call toast auto-hide
+  useEffect(() => {
+    if (!callToast) return;
+    const to = setTimeout(() => setCallToast(false), 2600);
+    return () => clearTimeout(to);
+  }, [callToast]);
+
+  // auto-play director
+  useEffect(() => {
+    if (!auto) return;
+    let to;
+    if (stage === 'idle') to = setTimeout(() => setStage('form'), 1300);
+    else if (stage === 'form') to = setTimeout(submit, 2400);
+    else if (stage === 'alert') to = setTimeout(accept, 3000);
+    else if (stage === 'arrived') to = setTimeout(finish, 3200);
+    else if (stage === 'complete') setAuto(false);
+    return () => clearTimeout(to);
+  }, [auto, stage]);
+  useEffect(() => {
+    if (auto && stage === 'tracking' && progress >= 1) {
+      const to = setTimeout(arrive, 1200);
+      return () => clearTimeout(to);
+    }
+  }, [auto, stage, progress >= 1]);
+
+  const etaMin = Math.max(1, Math.ceil(8 * (1 - progress)));
+
+  // patient phone
+  let patient;
+  if (mode === 'onboarding') {
+    patient = <PatientOnboarding key="p-onb" accent={accent} />;
+  } else if (patientTab === 'banks') patient = <AppShell accent={accent} tabs={PATIENT_TABS} active={patientTab} onChange={setPatientTab}><PatientBanksTab accent={accent} /></AppShell>;
+  else if (patientTab === 'requests') patient = <AppShell accent={accent} tabs={PATIENT_TABS} active={patientTab} onChange={setPatientTab}><PatientRequests accent={accent} stage={stage} onFollow={() => setPatientTab('home')} /></AppShell>;
+  else if (patientTab === 'profile') patient = <AppShell accent={accent} tabs={PATIENT_TABS} active={patientTab} onChange={setPatientTab}><PatientProfile accent={accent} /></AppShell>;
+  else {
+    let home;
+    if (stage === 'idle') home = <PatientHome accent={accent} onRequest={() => setStage('form')} />;
+    else if (stage === 'form') home = <PatientForm accent={accent} onSubmit={submit} />;
+    else if (stage === 'searching' || stage === 'alert') home = <PatientSearching accent={accent} donorsAlerted={Math.min(74, donorsAlerted)} urgencyScore={urgencyScore} radiusKm={radiusKm} />;
+    else if (stage === 'tracking') home = <PatientTracking accent={accent} progress={progress} etaMin={etaMin} arrived={false} onCall={call} />;
+    else if (stage === 'arrived') home = <PatientTracking accent={accent} progress={1} etaMin={0} arrived={true} onCall={call} />;
+    else home = <PatientComplete accent={accent} />;
+    patient = <AppShell accent={accent} tabs={PATIENT_TABS} active="home" onChange={setPatientTab} hideNav={stage === 'form'}>{home}</AppShell>;
+  }
+
+  // donor phone — an incoming CRITICAL alert hijacks the whole screen, like a call
+  let donor;
+  if (mode === 'onboarding') {
+    donor = <DonorOnboarding key="d-onb" accent={accent} />;
+  } else if (stage === 'alert') {
+    donor = <DonorAlert accent={accent} secondsLeft={alertSec} onAccept={accept} onDecline={decline} alertStyle={alertStyle} />;
+  } else if (donorTab === 'history') donor = <AppShell accent={accent} tabs={DONOR_TABS} active={donorTab} onChange={setDonorTab}><DonorHistory accent={accent} stage={stage} /></AppShell>;
+  else if (donorTab === 'profile') donor = <AppShell accent={accent} tabs={DONOR_TABS} active={donorTab} onChange={setDonorTab}><DonorProfile accent={accent} /></AppShell>;
+  else {
+    let dhome;
+    if (stage === 'idle' || stage === 'form' || stage === 'searching') dhome = <DonorHome accent={accent} available={available} onToggle={() => setAvailable(a => !a)} />;
+    else if (stage === 'tracking') dhome = <DonorNavigate accent={accent} progress={progress} etaMin={etaMin} onArrived={arrive} />;
+    else if (stage === 'arrived') dhome = <DonorDonation accent={accent} onComplete={finish} />;
+    else dhome = <DonorComplete accent={accent} />;
+    donor = <AppShell accent={accent} tabs={DONOR_TABS} active="home" onChange={setDonorTab} hideNav={stage === 'tracking'}>{dhome}</AppShell>;
+  }
+
+  const chromeBtn = (label, onClick, primary) => (
+    <button onClick={onClick} style={{
+      fontFamily: RS_FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+      padding: '8px 16px', borderRadius: 100, whiteSpace: 'nowrap', flexShrink: 0,
+      border: `1.5px solid ${primary ? accent : RS.line}`,
+      background: primary ? accent : '#fff', color: primary ? '#fff' : RS.ink,
+    }}>{label}</button>
+  );
+
+  return (
+    <RSLang.Provider value={lang}>
+      <div data-screen-label="RaktSetu demo stage" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: RS_FONT }}>
+        {/* header */}
+        <header style={{
+          display: 'flex', alignItems: 'center', gap: 12, padding: '18px 28px',
+          borderBottom: `1px solid ${RS.line}`, background: '#fff',
+        }}>
+          <Drop size={18} color={accent} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: RS.ink, letterSpacing: '-0.02em' }}>VitalLink</div>
+            <div style={{ fontSize: 12, color: RS.mid }}>Emergency blood matching — patient &amp; donor, live and in sync</div>
+          </div>
+          {/* mode switch */}
+          <div style={{ display: 'flex', background: RS.fog, borderRadius: 100, padding: 3, border: `1px solid ${RS.line}` }}>
+            {[['app', 'The app'], ['onboarding', 'Onboarding']].map(([id, label]) => (
+              <button key={id} onClick={() => { setAuto(false); setMode(id); }} style={{
+                fontFamily: RS_FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                padding: '6px 14px', borderRadius: 100, border: 'none', whiteSpace: 'nowrap',
+                background: mode === id ? '#fff' : 'transparent',
+                color: mode === id ? RS.ink : RS.faint,
+                boxShadow: mode === id ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+              }}>{label}</button>
+            ))}
+          </div>
+          {chromeBtn(auto ? '⏸ Pause' : '▶ Play the story', () => { setMode('app'); if (!auto && stage === 'complete') reset(); setAuto(a => !a); }, true)}
+          {chromeBtn('↺ Restart', () => { setAuto(false); reset(); })}
+          <a href="RaktSetu Command Center.html" style={{
+            fontFamily: RS_FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
+            padding: '8px 16px', borderRadius: 100, whiteSpace: 'nowrap', flexShrink: 0,
+            border: `1.5px solid ${RS.line}`, background: '#fff', color: RS.ink,
+          }}>Command Center →</a>
+        </header>
+
+        {/* step rail */}
+        <div style={{ padding: '18px 20px 4px' }}>
+          {mode === 'app'
+            ? <StepRail stage={stage} accent={accent} />
+            : <div style={{ textAlign: 'center', fontFamily: RS_FONT, fontSize: 12.5, color: RS.mid }}>
+                First-run onboarding — <b style={{ color: RS.ink }}>patients verify with OTP only</b> (no signup wall in an emergency); <b style={{ color: RS.ink }}>donors complete ABHA KYC</b> to keep fakes out. Tap through each phone.
+              </div>}
+        </div>
+
+        {/* phones */}
+        <main style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 64, padding: '22px 20px 30px', flexWrap: 'wrap' }}>
+          <Phone screenLabel={`Patient phone — ${mode === 'onboarding' ? 'onboarding' : stage}`} label="Meera — patient's attendant" sub={mode === 'onboarding' ? 'First run · OTP-only signup' : "Apollo Hospital, Ludhiana · needs O+ × 2"} accent={accent}>
+            <div style={{ position: 'relative' }}>
+              <AndroidDevice>{patient}</AndroidDevice>
+              {callToast && (
+                <div style={{
+                  position: 'absolute', left: 30, right: 30, bottom: 110, zIndex: 5,
+                  background: RS.ink, color: '#fff', borderRadius: 12, padding: '12px 16px',
+                  fontSize: 14.5, fontFamily: RS_FONT, textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+                }}>
+                  ☎ Connecting via masked line… numbers stay private
+                </div>
+              )}
+            </div>
+          </Phone>
+          <Phone screenLabel={`Donor phone — ${mode === 'onboarding' ? 'onboarding' : stage}`} label="Arjun — O+ donor" sub={mode === 'onboarding' ? 'First run · ABHA KYC + availability' : '2.3 km away · 7 donations · 94% reliability'} accent={accent}>
+            <AndroidDevice>{donor}</AndroidDevice>
+          </Phone>
+        </main>
+
+        {/* design notes */}
+        <footer style={{ borderTop: `1px solid ${RS.line}`, background: '#fff', padding: '14px 28px 18px' }}>
+          <details>
+            <summary style={{ fontSize: 12.5, fontWeight: 700, color: RS.mid, cursor: 'pointer' }}>Design notes — assumptions &amp; decisions</summary>
+            <div style={{ fontSize: 12.5, color: RS.mid, lineHeight: 1.7, maxWidth: 860, marginTop: 8 }}>
+              Built from the VitalLink system-design doc (v1.0). The demo dramatizes the documented emergency sequence: request → XGBoost urgency scoring → PostGIS radius match → FCM alert with 5-min window → first-accept-wins → Socket.io live tracking → hash-chained completion.
+              Beyond the story, both phones are full apps: blood-bank directory with live stock (30s inventory cache), request history, donation timeline with public hash-chain verification, and profiles exposing the spec's privacy &amp; consent model (ABDM consent manager, DISHA data rights, fatigue protection). The Onboarding mode shows OTP-only patient signup vs. ABHA-KYC donor registration.
+              Privacy behaviors from the spec are surfaced as UI moments: masked calls, hospital-only location for donors, and post-donation location deletion.
+              Visual system: clinical warm whites with the doc's deep red reserved for emergency moments; teal for donor trust states; mono type for data (ETA, scores, unit hashes).
+              Map and QR are stylized placeholders — production would use Google Maps + real unit tags.
+              <b> Try the Tweaks panel</b> (toolbar) for accent color, alert style (alarm vs clinical), bilingual Hindi labels, and travel speed.
+            </div>
+          </details>
+        </footer>
+
+        <TweaksPanel>
+          <TweakSection label="Brand" />
+          <TweakColor label="Accent" value={t.accent} options={["#C0152A", "#A4123F", "#B3361C"]} onChange={(v) => setTweak('accent', v)} />
+          <TweakSection label="Emergency alert" />
+          <TweakRadio label="Alert style" value={t.alertStyle} options={["Alarm", "Clinical"]} onChange={(v) => setTweak('alertStyle', v)} />
+          <TweakSection label="Language" />
+          <TweakRadio label="Labels" value={t.language} options={["English", "+ Hindi"]} onChange={(v) => setTweak('language', v)} />
+          <TweakSection label="Demo" />
+          <TweakSlider label="Donor travel time" value={t.travelSec} min={6} max={40} step={1} unit="s" onChange={(v) => setTweak('travelSec', v)} />
+        </TweaksPanel>
+      </div>
+    </RSLang.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

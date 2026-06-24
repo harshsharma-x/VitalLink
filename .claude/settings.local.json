@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(run)",
+      "Bash(docker --version)",
+      "Bash(pip3 --version)",
+      "Bash(npm --version)",
+      "Bash(npx --version)"
+    ]
+  }
+}
