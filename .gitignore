@@ -19,16 +19,23 @@ dist/
 build/
 .pytest_cache/
 *.pkl
+
+# SQLite databases
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # Node / React Native / Expo
 node_modules/
 .expo/
+.expo-shared/
 dist/
 build/
 *.tsbuildinfo
-.expo-shared/
+
+# Claude Code local config (machine-specific)
+.claude/
 
 # IDE
 .vscode/
