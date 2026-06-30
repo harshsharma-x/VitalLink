@@ -3,7 +3,7 @@ import re
 import random
 import hashlib
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
@@ -132,7 +132,7 @@ def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
 
     otp = str(random.randint(100000, 999999))
     otp_hash = hashlib.sha256(otp.encode()).hexdigest()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
 
     # Remove any previous OTPs for this phone
     db.query(OTPStore).filter(OTPStore.phone == phone).delete()
@@ -172,7 +172,7 @@ def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
     if not record:
         raise HTTPException(status_code=400, detail="No pending OTP for this number. Request a new one.")
 
-    if datetime.now(timezone.utc) > record.expires_at:
+    if datetime.utcnow() > record.expires_at:
         raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
 
     expected = hashlib.sha256(otp.encode()).hexdigest()
