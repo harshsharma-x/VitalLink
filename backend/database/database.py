@@ -4,7 +4,7 @@ import logging
 import os
 from typing import Optional, Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker, Session
 from .base import Base
 
@@ -48,10 +48,32 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def get_db_for_task() -> Session:
+    """Return a DB session for background tasks. Caller is responsible for closing."""
+    _get_engine()
+    return _SessionLocal()
+
+
+def _migrate_add_columns(eng) -> None:
+    """Add new columns to existing tables without full Alembic setup."""
+    migrations = [
+        ("users",  "push_token", "VARCHAR(255)"),
+    ]
+    insp = inspect(eng)
+    with eng.connect() as conn:
+        for table, col, col_type in migrations:
+            existing = {c["name"] for c in insp.get_columns(table)}
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                conn.commit()
+                logger.info("Added column %s.%s", table, col)
+
+
 def init_db():
     try:
         eng = _get_engine()
         Base.metadata.create_all(bind=eng)
+        _migrate_add_columns(eng)
         logger.info("Database tables initialised at %s", DATABASE_URL)
     except Exception as exc:
         logger.error("Could not initialise DB: %s", exc)

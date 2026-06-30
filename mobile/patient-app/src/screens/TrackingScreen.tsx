@@ -9,11 +9,24 @@ import RouteMap from '../components/RouteMap';
 type Props = { navigation: NativeStackNavigationProp<any>; route: any };
 
 export default function TrackingScreen({ navigation, route }: Props) {
-  const { blood_group = 'O+' } = route?.params ?? {};
+  const {
+    blood_group = 'O+',
+    units = 1,
+    donor_name = 'Donor',
+    donor_group,
+    reliability_score = 0,
+    donation_count = 0,
+  } = route?.params ?? {};
+
   const [progress, setProgress] = useState(0);
   const [arrived, setArrived] = useState(false);
   const eta = Math.max(0, Math.round(8 * (1 - progress)));
   const dist = (2.3 * (1 - progress)).toFixed(1);
+
+  // Donor initial for avatar
+  const initial = donor_name?.trim()?.[0]?.toUpperCase() ?? 'D';
+  // Masked name: "Rahul S." → keep as-is; truncate long names
+  const displayName = donor_name?.length > 14 ? donor_name.split(' ')[0] + ' ' + (donor_name.split(' ')[1]?.[0] ?? '') + '.' : donor_name;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -26,6 +39,8 @@ export default function TrackingScreen({ navigation, route }: Props) {
     return () => clearInterval(interval);
   }, []);
 
+  const reliabilityColor = reliability_score >= 80 ? RS.teal : reliability_score >= 50 ? RS.amber : RS.accent;
+
   return (
     <View style={{ flex: 1, backgroundColor: RS.fog }}>
       <View style={{ flex: 1, position: 'relative' }}>
@@ -37,27 +52,58 @@ export default function TrackingScreen({ navigation, route }: Props) {
           </View>
         </View>
       </View>
+
       <View style={s.sheet}>
         <View style={s.sheetHandle} />
+
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={s.avatar}><Text style={s.avatarText}>A</Text></View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.donorName}>Arjun S.</Text>
-            <Text style={s.donorSub}>7 donations · 94% reliability · verified via ABHA</Text>
+          <View style={s.avatar}>
+            <Text style={s.avatarText}>{initial}</Text>
           </View>
-          <BloodTag group={blood_group} accent={RS.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.donorName}>{displayName}</Text>
+            <Text style={s.donorSub}>
+              {donation_count} donation{donation_count !== 1 ? 's' : ''} · {reliability_score}% reliability
+            </Text>
+          </View>
+          <BloodTag group={donor_group ?? blood_group} accent={RS.accent} />
         </View>
+
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           <View style={s.stat}>
             <Text style={s.statLabel}>ETA</Text>
-            <Text style={[s.statVal, { color: arrived ? RS.teal : RS.ink }]}>{arrived ? 'Arrived' : `${eta} min`}</Text>
+            <Text style={[s.statVal, { color: arrived ? RS.teal : RS.ink }]}>
+              {arrived ? 'Arrived' : `${eta} min`}
+            </Text>
           </View>
           <View style={s.stat}>
             <Text style={s.statLabel}>Distance</Text>
             <Text style={s.statVal}>{arrived ? '0.0 km' : `${dist} km`}</Text>
           </View>
+          <View style={s.stat}>
+            <Text style={s.statLabel}>Units</Text>
+            <Text style={s.statVal}>{units}</Text>
+          </View>
         </View>
-        <TouchableOpacity style={s.callBtn} onPress={() => Alert.alert('Calling', 'Number stays masked — Exotel proxy call.')} activeOpacity={0.8}>
+
+        {/* Reliability bar */}
+        <View style={{ marginTop: 12, gap: 5 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 0.7, textTransform: 'uppercase', color: RS.faint }}>
+              Donor reliability
+            </Text>
+            <Text style={{ fontSize: 10.5, fontWeight: '700', color: reliabilityColor }}>{reliability_score}%</Text>
+          </View>
+          <View style={{ height: 5, backgroundColor: RS.line, borderRadius: 3, overflow: 'hidden' }}>
+            <View style={{ height: '100%', width: `${reliability_score}%`, backgroundColor: reliabilityColor, borderRadius: 3 }} />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={s.callBtn}
+          onPress={() => Alert.alert('Calling', 'Number stays masked for privacy — call is routed through VitalLink.')}
+          activeOpacity={0.8}
+        >
           <Text style={s.callBtnText}>☎  Call donor (number stays masked)</Text>
         </TouchableOpacity>
       </View>

@@ -84,6 +84,24 @@ def demo_login(request: DemoLoginRequest, db: Session = Depends(get_db)):
 
 # ── OTP authentication ─────────────────────────────────────────────────────────
 
+class UserPushTokenUpdate(BaseModel):
+    push_token: str
+
+
+@router.post("/push-token", status_code=status.HTTP_200_OK)
+def save_user_push_token(
+    data: UserPushTokenUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save Expo push token for the current user (patients + donors)."""
+    current_user.push_token = data.push_token
+    db.commit()
+    return {"ok": True}
+
+
+# ── OTP authentication ─────────────────────────────────────────────────────────
+
 class SendOTPRequest(BaseModel):
     phone: str
 

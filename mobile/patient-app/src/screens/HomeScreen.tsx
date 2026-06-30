@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RS, MONO } from '../theme/RS';
 import Drop from '../components/Drop';
 import PulseDot from '../components/PulseDot';
 import RSCard from '../components/RSCard';
 import RSBtn from '../components/RSBtn';
+import api from '../api/api';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -14,9 +16,19 @@ export default function HomeScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [activeTab, setActiveTab] = useState<'home' | 'banks' | 'requests' | 'profile'>('home');
 
+  const registerPushToken = useCallback(async () => {
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') return;
+      const token = await Notifications.getExpoPushTokenAsync();
+      await api.post('/auth/push-token', { push_token: token.data });
+    } catch {}
+  }, []);
+
   useEffect(() => {
     AsyncStorage.getItem('patient_name').then(n => setName(n ?? 'User'));
-  }, []);
+    registerPushToken();
+  }, [registerPushToken]);
 
   const tabs = [
     { id: 'home', label: 'Home' },

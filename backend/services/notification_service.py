@@ -44,7 +44,16 @@ def send_push(push_token: Optional[str], title: str, body: str, data: Optional[D
     }])
 
 
-def alert_donor(push_token: Optional[str], blood_group: str, hospital: str, request_id: str, match_id: str) -> None:
+def alert_donor(
+    push_token: Optional[str],
+    blood_group: str,
+    hospital: str,
+    request_id: str,
+    match_id: str,
+    hospital_lat: Optional[float] = None,
+    hospital_lng: Optional[float] = None,
+    units: int = 1,
+) -> None:
     send_push(
         push_token,
         title=f"🩸 Emergency: {blood_group} blood needed NOW",
@@ -55,6 +64,9 @@ def alert_donor(push_token: Optional[str], blood_group: str, hospital: str, requ
             "match_id": match_id,
             "blood_group": blood_group,
             "hospital": hospital,
+            "hospital_lat": hospital_lat,
+            "hospital_lng": hospital_lng,
+            "units": units,
         },
     )
 

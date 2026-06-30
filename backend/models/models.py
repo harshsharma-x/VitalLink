@@ -11,6 +11,7 @@ class User(BaseModel):
     name = Column(String(255), nullable=False)
     phone = Column(String(20), nullable=False, unique=True)
     role = Column(String(20), nullable=False)
+    push_token = Column(String(255), nullable=True)
 
     donor = relationship("Donor", back_populates="user", uselist=False)
     requests = relationship("EmergencyRequest", back_populates="patient")
