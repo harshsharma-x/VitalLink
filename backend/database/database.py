@@ -10,10 +10,9 @@ from .base import Base
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./vitallink.db",
-)
+_raw_url = os.getenv("DATABASE_URL", "sqlite:///./vitallink.db")
+# Render (and Heroku) return postgres:// — SQLAlchemy needs postgresql://
+DATABASE_URL = _raw_url.replace("postgres://", "postgresql://", 1)
 
 _engine = None
 _SessionLocal = None
