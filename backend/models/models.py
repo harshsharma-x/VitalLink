@@ -85,3 +85,12 @@ class BloodBank(BaseModel):
     latitude = Column(Float)
     longitude = Column(Float)
     available_units = Column(JSON, default={})
+
+
+class OTPStore(BaseModel):
+    __tablename__ = "otp_store"
+
+    phone = Column(String(20), nullable=False, index=True)
+    otp_hash = Column(String(64), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    verified = Column(Boolean, default=False)

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RS, MONO } from '../theme/RS';
 import Drop from '../components/Drop';
@@ -16,29 +15,28 @@ export default function LoginScreen({ navigation }: Props) {
 
   const isValid = name.trim().length > 0 && /^[6-9]\d{9}$/.test(phone);
 
-  const handleLogin = async () => {
+  const handleGetOTP = async () => {
     if (!name.trim()) { setError('Please enter your name'); return; }
     if (!/^[6-9]\d{9}$/.test(phone)) { setError('Enter a valid 10-digit mobile number'); return; }
     setError('');
     setLoading(true);
     try {
       const { BASE_URL } = await import('../config');
-      const res = await fetch(`${BASE_URL}/auth/demo`, {
+      const res = await fetch(`${BASE_URL}/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone, role: 'patient' }),
+        body: JSON.stringify({ phone }),
       });
-      if (!res.ok) throw new Error('Server error');
       const data = await res.json();
-      await AsyncStorage.multiSet([
-        ['access_token', data.token],
-        ['patient_id', String(data.user_id)],
-        ['patient_name', name.trim()],
-        ['patient_phone', phone],
-      ]);
-      navigation.replace('Home');
-    } catch {
-      setError('Could not reach server. Check your Wi-Fi and try again.');
+      if (!res.ok) throw new Error(data.detail ?? 'Could not send OTP');
+      navigation.navigate('OTP', {
+        phone,
+        name: name.trim(),
+        role: 'patient',
+        dev_otp: data.dev_otp,
+      });
+    } catch (e: any) {
+      setError(e.message ?? 'Could not reach server. Check your Wi-Fi and try again.');
     } finally {
       setLoading(false);
     }
@@ -48,13 +46,11 @@ export default function LoginScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: RS.fog }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
 
-        {/* Header */}
         <View style={s.header}>
           <Drop size={16} color={RS.accent} />
           <Text style={s.brand}>VitalLink</Text>
         </View>
 
-        {/* Progress dots */}
         <View style={s.progress}>
           {[0, 1].map(i => (
             <View key={i} style={[s.dot, { backgroundColor: i === 0 ? RS.accent : RS.line }]} />
@@ -94,7 +90,7 @@ export default function LoginScreen({ navigation }: Props) {
                   keyboardType="phone-pad"
                   maxLength={10}
                   returnKeyType="done"
-                  onSubmitEditing={handleLogin}
+                  onSubmitEditing={handleGetOTP}
                 />
               </View>
             </View>
@@ -102,11 +98,11 @@ export default function LoginScreen({ navigation }: Props) {
 
           {error ? <Text style={s.error}>{error}</Text> : null}
 
-          <RSBtn onPress={handleLogin} accent={RS.accent} big loading={loading} disabled={!isValid} style={{ marginTop: 8 }}>
-            Verify &amp; continue
+          <RSBtn onPress={handleGetOTP} accent={RS.accent} big loading={loading} disabled={!isValid} style={{ marginTop: 8 }}>
+            Get OTP
           </RSBtn>
 
-          <Text style={s.hint}>No internet? Dial <Text style={{ fontFamily: MONO, color: RS.ink, fontWeight: '700' }}>*BLOOD#</Text> from any phone — same network.</Text>
+          <Text style={s.hint}>A 6-digit code will be sent to your number. Standard rates may apply.</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

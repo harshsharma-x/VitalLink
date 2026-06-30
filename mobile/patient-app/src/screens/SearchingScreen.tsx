@@ -41,7 +41,7 @@ export default function SearchingScreen({ navigation, route }: Props) {
     anim.start();
     const t1 = setTimeout(() => setSteps([true, false, false]), 600);
     const t2 = setTimeout(() => setSteps([true, true, false]), 1400);
-    const t3 = setTimeout(() => { setSteps([true, true, true]); setDonorsAlerted(14); }, 2400);
+    const t3 = setTimeout(() => { setSteps([true, true, true]); }, 2400);
     const t4 = setTimeout(() => navigation.replace('Tracking', { blood_group, units }), 8000);
     return () => { anim.stop(); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, []);

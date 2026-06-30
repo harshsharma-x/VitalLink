@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RS, MONO } from '../theme/RS';
 import Drop from '../components/Drop';
@@ -19,30 +18,29 @@ export default function LoginScreen({ navigation }: Props) {
 
   const isValid = name.trim().length > 0 && /^[6-9]\d{9}$/.test(phone);
 
-  const handleLogin = async () => {
+  const handleGetOTP = async () => {
     if (!name.trim()) { setError('Please enter your name'); return; }
     if (!/^[6-9]\d{9}$/.test(phone)) { setError('Enter a valid 10-digit mobile number'); return; }
     setError('');
     setLoading(true);
     try {
       const { BASE_URL } = await import('../config');
-      const res = await fetch(`${BASE_URL}/auth/demo`, {
+      const res = await fetch(`${BASE_URL}/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone, role: 'donor', blood_group: group }),
+        body: JSON.stringify({ phone }),
       });
-      if (!res.ok) throw new Error('Server error');
       const data = await res.json();
-      await AsyncStorage.multiSet([
-        ['access_token', data.token],
-        ['donor_id', String(data.donor_id ?? data.user_id)],
-        ['donor_name', name.trim()],
-        ['donor_group', group],
-        ['donor_phone', phone],
-      ]);
-      navigation.replace('Home');
-    } catch {
-      setError('Could not reach server. Check your Wi-Fi and try again.');
+      if (!res.ok) throw new Error(data.detail ?? 'Could not send OTP');
+      navigation.navigate('OTP', {
+        phone,
+        name: name.trim(),
+        role: 'donor',
+        blood_group: group,
+        dev_otp: data.dev_otp,
+      });
+    } catch (e: any) {
+      setError(e.message ?? 'Could not reach server. Check your Wi-Fi and try again.');
     } finally {
       setLoading(false);
     }
@@ -75,7 +73,7 @@ export default function LoginScreen({ navigation }: Props) {
                 <View style={s.cc}><Text style={s.ccText}>+91</Text></View>
                 <TextInput style={[s.input, { flex: 1 }]} placeholder="10-digit number" placeholderTextColor={RS.faint}
                   value={phone} onChangeText={t => { setPhone(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
-                  keyboardType="phone-pad" maxLength={10} returnKeyType="done" onSubmitEditing={handleLogin} />
+                  keyboardType="phone-pad" maxLength={10} returnKeyType="done" onSubmitEditing={handleGetOTP} />
               </View>
             </View>
             <View>
@@ -91,10 +89,10 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
           </View>
           {error ? <Text style={{ fontSize: 12.5, color: RS.accent, fontWeight: '600' }}>{error}</Text> : null}
-          <RSBtn onPress={handleLogin} accent={RS.accent} big loading={loading} disabled={!isValid} style={{ marginTop: 8 }}>
-            Register as donor
+          <RSBtn onPress={handleGetOTP} accent={RS.accent} big loading={loading} disabled={!isValid} style={{ marginTop: 8 }}>
+            Get OTP
           </RSBtn>
-          <Text style={s.hint}>You'll receive alerts only when you're available. You can switch off anytime.</Text>
+          <Text style={s.hint}>A 6-digit code will be sent to your number. You'll receive alerts only when available.</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

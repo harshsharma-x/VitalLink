@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import LoginScreen from './src/screens/LoginScreen';
+import OTPScreen from './src/screens/OTPScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import EmergencyAlertScreen from './src/screens/EmergencyAlertScreen';
 import NavigationScreen from './src/screens/NavigationScreen';
@@ -68,6 +69,7 @@ export default function App() {
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="OTP" component={OTPScreen as any} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="EmergencyAlert" component={EmergencyAlertScreen as any} options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="Navigation" component={NavigationScreen as any} />
