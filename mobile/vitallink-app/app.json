@@ -47,7 +47,7 @@
     ],
     "newArchEnabled": true,
     "extra": {
-      "apiUrl": "http://192.168.0.188:8000",
+      "apiUrl": "http://localhost:8000",
       "googleClientId": {
         "web": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
         "ios": "YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
