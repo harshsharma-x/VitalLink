@@ -24,10 +24,12 @@ export default function Hero() {
             
             {/* Desktop menu */}
             <div className="hidden md:flex items-center space-x-8">
+              <a href="#about" className="text-gray-600 hover:text-red-600 transition-colors">About</a>
               <a href="#features" className="text-gray-600 hover:text-red-600 transition-colors">Features</a>
               <a href="#how-it-works" className="text-gray-600 hover:text-red-600 transition-colors">How It Works</a>
               <a href="#impact" className="text-gray-600 hover:text-red-600 transition-colors">Impact</a>
-              <a href="#download" className="btn-primary text-white px-6 py-2 rounded-full font-medium">Download App</a>
+              <a href="#tech" className="text-gray-600 hover:text-red-600 transition-colors">Tech Stack</a>
+              <a href="#launch" className="btn-primary text-white px-6 py-2 rounded-full font-medium">Launch App</a>
             </div>
 
             {/* Mobile menu button */}
@@ -52,10 +54,12 @@ export default function Hero() {
         {isMenuOpen && (
           <div className="md:hidden bg-white border-b border-gray-100">
             <div className="px-4 pt-2 pb-4 space-y-1">
+              <a href="#about" className="block px-3 py-2 text-gray-600 hover:text-red-600">About</a>
               <a href="#features" className="block px-3 py-2 text-gray-600 hover:text-red-600">Features</a>
               <a href="#how-it-works" className="block px-3 py-2 text-gray-600 hover:text-red-600">How It Works</a>
               <a href="#impact" className="block px-3 py-2 text-gray-600 hover:text-red-600">Impact</a>
-              <a href="#download" className="block px-3 py-2 btn-primary text-white rounded-lg text-center">Download App</a>
+              <a href="#tech" className="block px-3 py-2 text-gray-600 hover:text-red-600">Tech Stack</a>
+              <a href="#launch" className="block px-3 py-2 btn-primary text-white rounded-lg text-center">Launch App</a>
             </div>
           </div>
         )}
@@ -76,22 +80,21 @@ export default function Hero() {
             </h1>
             
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Connect patients in urgent need of blood with verified donors instantly. 
-              Our ML-powered platform matches you with the perfect donor, faster than ever before.
+              An ML-powered platform that connects patients in urgent need of blood 
+              with verified donors instantly. Built to fight the blood black market 
+              and make emergency blood accessible to everyone.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="#download" className="btn-primary text-white px-8 py-4 rounded-full text-lg font-semibold inline-flex items-center justify-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.32 2.32-2.14 4.45-3.74 4.25z"/>
+              <a href="#launch" className="btn-primary text-white px-8 py-4 rounded-full text-lg font-semibold inline-flex items-center justify-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Download for iOS
+                Launch App
               </a>
-              <a href="#download" className="bg-white border-2 border-gray-200 text-gray-700 px-8 py-4 rounded-full text-lg font-semibold inline-flex items-center justify-center hover:border-red-500 hover:text-red-600 transition-all">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3.18 23.74c.18.12.37.18.56.18.19 0 .38-.06.54-.18l11.04-6.36-2.78-2.78L3.18 23.74zM2.28 21.78L13.54 12 2.28 2.22c-.18.36-.28.78-.28 1.22v17.12c0 .44.1.86.28 1.22zM14.52 12l2.78-2.78 2.78 2.78-2.78 2.78L14.52 12zM3.18.26c-.36.18-.56.54-.56.94v15.6l11.04 6.36L3.18.26z"/>
-                </svg>
-                Download for Android
+              <a href="#about" className="bg-white border-2 border-gray-200 text-gray-700 px-8 py-4 rounded-full text-lg font-semibold inline-flex items-center justify-center hover:border-red-500 hover:text-red-600 transition-all">
+                Learn More
               </a>
             </div>
 
@@ -100,19 +103,19 @@ export default function Hero() {
                 <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <span>Free to Use</span>
+                <span>React Native + Expo</span>
               </div>
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <span>Verified Donors</span>
+                <span>FastAPI + ML Backend</span>
               </div>
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <span>Anti-Corruption</span>
+                <span>Built in India</span>
               </div>
             </div>
           </div>
