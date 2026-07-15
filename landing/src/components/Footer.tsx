@@ -33,6 +33,7 @@ export default function Footer() {
               <li><a href="#features" className="text-gray-400 hover:text-white transition-colors">Features</a></li>
               <li><a href="#how-it-works" className="text-gray-400 hover:text-white transition-colors">How It Works</a></li>
               <li><a href="#impact" className="text-gray-400 hover:text-white transition-colors">Impact</a></li>
+              <li><a href="#future" className="text-gray-400 hover:text-white transition-colors">Roadmap</a></li>
               <li><a href="#tech" className="text-gray-400 hover:text-white transition-colors">Tech Stack</a></li>
             </ul>
           </div>
@@ -42,9 +43,7 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-4">Links</h3>
             <ul className="space-y-2">
               <li><a href="https://github.com/harshsharma-x/VitalLink" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">GitHub Repo</a></li>
-              <li><a href="#launch" className="text-gray-400 hover:text-white transition-colors">Launch App</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Terms of Service</a></li>
+              <li><a href="#demo" className="text-gray-400 hover:text-white transition-colors">Try Demo</a></li>
             </ul>
           </div>
         </div>

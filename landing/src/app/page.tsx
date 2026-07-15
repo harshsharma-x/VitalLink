@@ -5,8 +5,9 @@ import About from '@/components/About'
 import Features from '@/components/Features'
 import HowItWorks from '@/components/HowItWorks'
 import Impact from '@/components/Impact'
+import FutureScope from '@/components/FutureScope'
 import TechStack from '@/components/TechStack'
-import Launch from '@/components/Launch'
+import Demo from '@/components/Demo'
 import Footer from '@/components/Footer'
 
 export default function Home() {
@@ -17,8 +18,9 @@ export default function Home() {
       <Features />
       <HowItWorks />
       <Impact />
+      <FutureScope />
       <TechStack />
-      <Launch />
+      <Demo />
       <Footer />
     </main>
   )

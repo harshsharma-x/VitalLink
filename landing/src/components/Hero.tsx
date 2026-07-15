@@ -28,8 +28,9 @@ export default function Hero() {
               <a href="#features" className="text-gray-600 hover:text-red-600 transition-colors">Features</a>
               <a href="#how-it-works" className="text-gray-600 hover:text-red-600 transition-colors">How It Works</a>
               <a href="#impact" className="text-gray-600 hover:text-red-600 transition-colors">Impact</a>
+              <a href="#future" className="text-gray-600 hover:text-red-600 transition-colors">Roadmap</a>
               <a href="#tech" className="text-gray-600 hover:text-red-600 transition-colors">Tech Stack</a>
-              <a href="#launch" className="btn-primary text-white px-6 py-2 rounded-full font-medium">Launch App</a>
+              <a href="#demo" className="btn-primary text-white px-6 py-2 rounded-full font-medium">Try Demo</a>
             </div>
 
             {/* Mobile menu button */}
@@ -58,8 +59,9 @@ export default function Hero() {
               <a href="#features" className="block px-3 py-2 text-gray-600 hover:text-red-600">Features</a>
               <a href="#how-it-works" className="block px-3 py-2 text-gray-600 hover:text-red-600">How It Works</a>
               <a href="#impact" className="block px-3 py-2 text-gray-600 hover:text-red-600">Impact</a>
+              <a href="#future" className="block px-3 py-2 text-gray-600 hover:text-red-600">Roadmap</a>
               <a href="#tech" className="block px-3 py-2 text-gray-600 hover:text-red-600">Tech Stack</a>
-              <a href="#launch" className="block px-3 py-2 btn-primary text-white rounded-lg text-center">Launch App</a>
+              <a href="#demo" className="block px-3 py-2 btn-primary text-white rounded-lg text-center">Try Demo</a>
             </div>
           </div>
         )}
@@ -86,12 +88,12 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="#launch" className="btn-primary text-white px-8 py-4 rounded-full text-lg font-semibold inline-flex items-center justify-center">
+              <a href="#demo" className="btn-primary text-white px-8 py-4 rounded-full text-lg font-semibold inline-flex items-center justify-center">
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Launch App
+                Try Demo
               </a>
               <a href="#about" className="bg-white border-2 border-gray-200 text-gray-700 px-8 py-4 rounded-full text-lg font-semibold inline-flex items-center justify-center hover:border-red-500 hover:text-red-600 transition-all">
                 Learn More
