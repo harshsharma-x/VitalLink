@@ -26,6 +26,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [name, setName] = useState('Donor');
   const [group, setGroup] = useState('O+');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [alertEnabled, setAlertEnabled] = useState(true);
   const [alertRadius, setAlertRadius] = useState(true);
   const [shareAbha, setShareAbha] = useState(true);
@@ -36,17 +37,32 @@ export default function ProfileScreen({ navigation }: Props) {
       AsyncStorage.getItem('donor_name'),
       AsyncStorage.getItem('donor_group'),
       AsyncStorage.getItem('donor_phone'),
-    ]).then(([n, g, p]) => {
+      AsyncStorage.getItem('donor_email'),
+    ]).then(([n, g, p, e]) => {
       if (n) setName(n);
       if (g) setGroup(g);
       if (p) setPhone(p);
+      if (e) setEmail(e);
     });
   }, []);
 
-  const maskedPhone = phone.length === 10 ? `+91 ${phone.slice(0, 2)}****${phone.slice(6)}` : '+91 ••••••••••';
+  const maskedPhone = phone.length === 10
+    ? `+91 ${phone.slice(0, 2)}****${phone.slice(6)}`
+    : email
+      ? email  // Google sign-in — show email instead
+      : '+91 ••••••••••';
 
   const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['access_token', 'donor_id', 'donor_name', 'donor_group', 'donor_phone', 'cached_profile', 'cached_donations']);
+    await Promise.all([
+      AsyncStorage.removeItem('access_token'),
+      AsyncStorage.removeItem('donor_id'),
+      AsyncStorage.removeItem('donor_name'),
+      AsyncStorage.removeItem('donor_group'),
+      AsyncStorage.removeItem('donor_phone'),
+      AsyncStorage.removeItem('donor_email'),
+      AsyncStorage.removeItem('cached_profile'),
+      AsyncStorage.removeItem('cached_donations'),
+    ]);
     navigation.replace('Login');
   };
 

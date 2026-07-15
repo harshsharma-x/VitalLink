@@ -1,42 +1,95 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { RS, MONO } from '../theme/RS';
 import Drop from '../components/Drop';
-import RSBtn from '../components/RSBtn';
+import { googleAuthConfig, isGoogleConfigured } from '../googleConfig';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
 export default function LoginScreen({ navigation }: Props) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const googleReady = isGoogleConfigured();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const isValid = name.trim().length > 0 && /^[6-9]\d{9}$/.test(phone);
+  // Google Auth Request — reads client IDs from app.json via googleConfig
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest(googleAuthConfig);
 
-  const handleGetOTP = async () => {
-    if (!name.trim()) { setError('Please enter your name'); return; }
-    if (!/^[6-9]\d{9}$/.test(phone)) { setError('Enter a valid 10-digit mobile number'); return; }
+  // Handle Google OAuth response
+  useEffect(() => {
+    if (!response) return;
+    if (response.type === 'success') {
+      const { id_token } = response.params;
+      if (id_token) handleGoogleLogin(id_token);
+    } else if (response.type === 'error') {
+      setError('Google sign-in was cancelled or failed. Please try again.');
+    }
+  }, [response]);
+
+  const handleGoogleLogin = async (idToken: string) => {
     setError('');
     setLoading(true);
     try {
       const { BASE_URL } = await import('../config');
-      const res = await fetch(`${BASE_URL}/auth/send-otp`, {
+      const res = await fetch(`${BASE_URL}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({
+          id_token: idToken,
+          role: 'patient',
+        }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? 'Could not send OTP');
-      navigation.navigate('OTP', {
-        phone,
-        name: name.trim(),
-        role: 'patient',
-        dev_otp: data.dev_otp,
-      });
+      if (!res.ok) throw new Error(data.detail ?? 'Google sign-in failed');
+
+      await Promise.all([
+        AsyncStorage.setItem('access_token', data.token),
+        AsyncStorage.setItem('patient_id', String(data.user_id)),
+        AsyncStorage.setItem('patient_name', data.name ?? ''),
+        AsyncStorage.setItem('patient_email', data.email ?? ''),
+      ]);
+      navigation.replace('Home');
     } catch (e: any) {
-      setError(e.message ?? 'Could not reach server. Check your Wi-Fi and try again.');
+      setError(e.message ?? 'Could not connect to server. Check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Dev mode: simulate Google login without actual credentials ────────────
+  const handleDevLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const { BASE_URL } = await import('../config');
+      const res = await fetch(`${BASE_URL}/auth/demo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Dev Patient',
+          phone: '8888888888',
+          role: 'patient',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? 'Dev login failed');
+
+      await Promise.all([
+        AsyncStorage.setItem('access_token', data.token),
+        AsyncStorage.setItem('patient_id', String(data.user_id)),
+        AsyncStorage.setItem('patient_name', 'Dev Patient'),
+      ]);
+      navigation.replace('Home');
+    } catch (e: any) {
+      setError(e.message ?? 'Dev login failed');
     } finally {
       setLoading(false);
     }
@@ -45,64 +98,66 @@ export default function LoginScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: RS.fog }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
-
         <View style={s.header}>
           <Drop size={16} color={RS.accent} />
           <Text style={s.brand}>VitalLink</Text>
         </View>
 
-        <View style={s.progress}>
-          {[0, 1].map(i => (
-            <View key={i} style={[s.dot, { backgroundColor: i === 0 ? RS.accent : RS.line }]} />
-          ))}
-        </View>
-
         <View style={{ flex: 1, paddingTop: 26, gap: 18 }}>
           <View>
-            <Text style={s.heading}>One number.{'\n'}That's all.</Text>
-            <Text style={s.sub}>In an emergency there's no time for forms. Enter your name and number to get started instantly.</Text>
+            <Text style={s.heading}>Quick access.{'\n'}Google login.</Text>
+            <Text style={s.sub}>
+              In an emergency there's no time for forms. Sign in with Google and you're ready to request blood in seconds.
+            </Text>
           </View>
 
-          <View style={{ gap: 14 }}>
-            <View>
-              <Text style={s.label}>FULL NAME</Text>
-              <TextInput
-                style={s.input}
-                placeholder="Your name"
-                placeholderTextColor={RS.faint}
-                value={name}
-                onChangeText={t => { setName(t); setError(''); }}
-                autoCapitalize="words"
-                returnKeyType="next"
-              />
-            </View>
+          {/* Google Sign-In Button */}
+          <TouchableOpacity
+            onPress={() => {
+              if (googleReady) promptAsync();
+              else handleDevLogin();
+            }}
+            disabled={loading}
+            activeOpacity={0.82}
+            style={s.googleBtn}
+          >
+            {loading ? (
+              <ActivityIndicator color="#555" />
+            ) : (
+              <>
+                <View style={s.googleIcon}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#4285F4' }}>G</Text>
+                </View>
+                <Text style={s.googleBtnText}>
+                  {googleReady ? 'Sign in with Google' : 'Continue as Dev Patient'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-            <View>
-              <Text style={s.label}>MOBILE NUMBER</Text>
-              <View style={s.phoneRow}>
-                <View style={s.cc}><Text style={s.ccText}>+91</Text></View>
-                <TextInput
-                  style={[s.input, { flex: 1 }]}
-                  placeholder="10-digit number"
-                  placeholderTextColor={RS.faint}
-                  value={phone}
-                  onChangeText={t => { setPhone(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  returnKeyType="done"
-                  onSubmitEditing={handleGetOTP}
-                />
-              </View>
-            </View>
-          </View>
+          {/* Dev link — only when Google not configured */}
+          {!googleReady && (
+            <TouchableOpacity onPress={handleDevLogin} activeOpacity={0.7}>
+              <Text style={s.devLink}>
+                (or tap to use demo mode)
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {error ? <Text style={s.error}>{error}</Text> : null}
 
-          <RSBtn onPress={handleGetOTP} accent={RS.accent} big loading={loading} disabled={!isValid} style={{ marginTop: 8 }}>
-            Get OTP
-          </RSBtn>
+          <Text style={s.hint}>
+            {googleReady
+              ? 'You\'ll be asked to choose your Google account. Only your name and email are shared.'
+              : 'DEV MODE — Configure Google Client ID in app.json to enable real Google Sign-In.'}
+          </Text>
 
-          <Text style={s.hint}>A 6-digit code will be sent to your number. Standard rates may apply.</Text>
+          <View style={s.infoCard}>
+            <Text style={s.infoTitle}>🚨 For emergencies</Text>
+            <Text style={s.infoText}>
+              Your identity helps hospitals verify your request faster. No form-filling needed.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -113,22 +168,25 @@ const s = StyleSheet.create({
   container: { flexGrow: 1, padding: 22, paddingTop: 20 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   brand: { fontSize: 15, fontWeight: '800', color: RS.ink, letterSpacing: -0.2 },
-  progress: { flexDirection: 'row', gap: 5, marginTop: 14 },
-  dot: { height: 4, borderRadius: 2, flex: 1 },
   heading: { fontSize: 30, fontWeight: '800', color: RS.ink, letterSpacing: -0.5, lineHeight: 36, marginBottom: 10 },
   sub: { fontSize: 13, color: RS.mid, lineHeight: 20 },
-  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, color: RS.faint, marginBottom: 8, textTransform: 'uppercase' },
-  input: {
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: RS.white, borderWidth: 1.5, borderColor: RS.line,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
-    fontSize: 15, color: RS.ink,
+    borderRadius: 12, paddingVertical: 15, gap: 10, marginTop: 8,
   },
-  phoneRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  cc: {
-    backgroundColor: RS.white, borderWidth: 1.5, borderColor: RS.line,
-    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 13,
+  googleIcon: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#F0F6FF', alignItems: 'center', justifyContent: 'center',
   },
-  ccText: { fontFamily: MONO, fontWeight: '600', fontSize: 15, color: RS.ink },
-  error: { fontSize: 12.5, color: RS.accent, fontWeight: '600' },
+  googleBtnText: { fontSize: 16, fontWeight: '600', color: '#444' },
+  devLink: { fontSize: 12, color: RS.mid, textAlign: 'center', textDecorationLine: 'underline', marginTop: -4 },
+  error: { fontSize: 12.5, color: RS.accent, fontWeight: '600', textAlign: 'center' },
   hint: { fontSize: 11, color: RS.faint, lineHeight: 17, textAlign: 'center', marginTop: 4 },
+  infoCard: {
+    backgroundColor: RS.steal, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: RS.teal,
+    marginTop: 16,
+  },
+  infoTitle: { fontSize: 13, fontWeight: '700', color: RS.teal, marginBottom: 4 },
+  infoText: { fontSize: 11.5, color: '#0a5a47', lineHeight: 17 },
 });

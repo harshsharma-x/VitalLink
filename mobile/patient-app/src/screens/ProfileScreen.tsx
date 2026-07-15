@@ -24,6 +24,7 @@ function SettingRow({ label, sub, value, onChange }: { label: string; sub: strin
 export default function ProfileScreen({ navigation }: Props) {
   const [name, setName] = useState('User');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [abdm, setAbdm] = useState(true);
   const [disha, setDisha] = useState(false);
   const [shareLocation, setShareLocation] = useState(true);
@@ -33,16 +34,29 @@ export default function ProfileScreen({ navigation }: Props) {
     Promise.all([
       AsyncStorage.getItem('patient_name'),
       AsyncStorage.getItem('patient_phone'),
-    ]).then(([n, p]) => {
+      AsyncStorage.getItem('patient_email'),
+    ]).then(([n, p, e]) => {
       if (n) setName(n);
       if (p) setPhone(p);
+      if (e) setEmail(e);
     });
   }, []);
 
-  const maskedPhone = phone.length === 10 ? `+91 ${phone.slice(0, 2)}****${phone.slice(6)}` : '+91 ••••••••••';
+  const maskedPhone = phone.length === 10
+    ? `+91 ${phone.slice(0, 2)}****${phone.slice(6)}`
+    : email
+      ? email  // Google sign-in — show email instead
+      : '+91 ••••••••••';
 
   const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['access_token', 'patient_id', 'patient_name', 'patient_phone', 'cached_requests']);
+    await Promise.all([
+      AsyncStorage.removeItem('access_token'),
+      AsyncStorage.removeItem('patient_id'),
+      AsyncStorage.removeItem('patient_name'),
+      AsyncStorage.removeItem('patient_phone'),
+      AsyncStorage.removeItem('patient_email'),
+      AsyncStorage.removeItem('cached_requests'),
+    ]);
     navigation.replace('Login');
   };
 

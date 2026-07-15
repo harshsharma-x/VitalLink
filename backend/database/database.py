@@ -58,6 +58,8 @@ def _migrate_add_columns(eng) -> None:
     """Add new columns to existing tables without full Alembic setup."""
     migrations = [
         ("users",  "push_token", "VARCHAR(255)"),
+        ("users",  "email",      "VARCHAR(255)"),
+        ("users",  "google_id",  "VARCHAR(255)"),
     ]
     insp = inspect(eng)
     with eng.connect() as conn:

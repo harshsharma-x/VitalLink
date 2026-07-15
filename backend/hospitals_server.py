@@ -6,6 +6,9 @@ Run with:
     cd backend
     python3 -m uvicorn hospitals_server:app --host 0.0.0.0 --port 8000 --reload
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers.hospitals import router as hospitals_router

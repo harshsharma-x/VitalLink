@@ -9,7 +9,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from database.database import get_db
 from schemas.auth import LoginRequest, LoginResponse, UserResponse
@@ -20,6 +20,107 @@ from models.models import User, Donor, OTPStore
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+# ── Google OAuth login ────────────────────────────────────────────────────────
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+    role: str = Field(..., pattern="^(patient|donor)$")
+    blood_group: Optional[str] = Field(None, max_length=10)
+
+
+@router.post("/google", status_code=status.HTTP_200_OK)
+def google_login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
+    """
+    Verify a Google ID token and create / return a user.
+    Uses Google's tokeninfo endpoint (no extra SDK needed).
+    """
+    try:
+        r = httpx.get(
+            "https://oauth2.googleapis.com/tokeninfo",
+            params={"id_token": request.id_token},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            logger.warning("Google token verification failed: %s", r.text)
+            raise HTTPException(status_code=401, detail="Invalid Google token")
+        info = r.json()
+    except httpx.RequestError as exc:
+        logger.error("Google tokeninfo request failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Could not verify Google token")
+
+    google_id = info.get("sub")
+    email = info.get("email", "")
+    name = info.get("name", "")
+
+    if not google_id or not email:
+        raise HTTPException(status_code=400, detail="Google token missing required claims")
+
+    # Verify the token audience matches our Google Client ID (security best practice)
+    allowed_aud = os.getenv("GOOGLE_CLIENT_ID", "")
+    if allowed_aud and info.get("aud") != allowed_aud:
+        logger.warning("Google token audience mismatch: expected %s, got %s", allowed_aud, info.get("aud"))
+        raise HTTPException(status_code=401, detail="Token audience mismatch")
+
+    # Look up existing user by google_id or email
+    user = (
+        db.query(User)
+        .filter((User.google_id == google_id) | (User.email == email))
+        .first()
+    )
+
+    if not user:
+        # Create new user
+        if not name.strip():
+            name = email.split("@")[0]
+        if request.role not in ("patient", "donor"):
+            raise HTTPException(status_code=400, detail="Role must be patient or donor")
+
+        user = User(
+            name=name.strip(),
+            email=email,
+            google_id=google_id,
+            role=request.role,
+        )
+        db.add(user)
+        db.flush()
+
+        if request.role == "donor":
+            if not request.blood_group:
+                raise HTTPException(status_code=400, detail="Blood group required for donors")
+            donor = Donor(
+                user_id=user.id,
+                blood_group=request.blood_group,
+                availability=True,
+            )
+            db.add(donor)
+
+        db.commit()
+        db.refresh(user)
+        logger.info("New user created via Google: %s (%s)", email, request.role)
+    else:
+        # Update Google ID if signing in with a different Google account that matches email
+        if not user.google_id:
+            user.google_id = google_id
+            db.commit()
+
+    token = create_access_token({"sub": str(user.id), "role": user.role, "email": user.email})
+
+    donor_id = None
+    if user.role == "donor":
+        d = db.query(Donor).filter(Donor.user_id == user.id).first()
+        if d:
+            donor_id = str(d.id)
+
+    return {
+        "token": token,
+        "user_id": str(user.id),
+        "donor_id": donor_id,
+        "role": user.role,
+        "name": user.name,
+        "email": user.email or "",
+    }
 
 
 # ── Existing login (Firebase path) ────────────────────────────────────────────

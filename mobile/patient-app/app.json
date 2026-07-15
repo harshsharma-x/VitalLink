@@ -30,10 +30,17 @@
         {
           "locationWhenInUsePermission": "VitalLink needs your location to find nearby donors."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "newArchEnabled": true,
     "extra": {
+      "apiUrl": "http://192.168.0.188:8000",
+      "googleClientId": {
+        "web": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
+        "ios": "YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
+        "android": "YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com"
+      },
       "eas": {
         "projectId": "662020e1-9e12-41bd-8e06-154b6396d001"
       }

@@ -59,11 +59,11 @@ export default function OTPScreen({ navigation, route }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Verification failed');
 
-      await AsyncStorage.multiSet([
-        ['access_token', data.token],
-        ['patient_id', String(data.user_id)],
-        ['patient_name', name],
-        ['patient_phone', phone],
+      await Promise.all([
+        AsyncStorage.setItem('access_token', data.token),
+        AsyncStorage.setItem('patient_id', String(data.user_id)),
+        AsyncStorage.setItem('patient_name', name),
+        AsyncStorage.setItem('patient_phone', phone),
       ]);
       navigation.replace('Home');
     } catch (e: any) {

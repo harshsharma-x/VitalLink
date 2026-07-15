@@ -46,7 +46,17 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+nul
+*.apk
+*.pdf
+*.html
+
+# Build artifacts
+backend/package-lock.json
 
 # Logs
 *.log
 logs/
+
+# Flutter / Gradle caches
+.gradle_home/

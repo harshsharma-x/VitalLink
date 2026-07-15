@@ -7,8 +7,8 @@
 **Find a verified blood donor in under 10 minutes. Track them live to the hospital. Make every blood unit corruption-proof.**
 
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-3DDC84.svg)](.)
-[![Mobile](https://img.shields.io/badge/Mobile-React%20Native%200.74%20%2B%20Expo%2051-61DAFB.svg)](.)
-[![Backend](https://img.shields.io/badge/Backend-FastAPI%20%2B%20Python%203.9-009688.svg)](.)
+[![Mobile](https://img.shields.io/badge/Mobile-React%20Native%200.85%20%2B%20Expo%2056-61DAFB.svg)](.)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI%20%2B%20Python%203.12-009688.svg)](.)
 [![ML](https://img.shields.io/badge/ML-Scikit--learn%20%7C%20GBR%20%2B%20RFC-EE4C2C.svg)](.)
 [![Data](https://img.shields.io/badge/Data-Google%20Places%20%7C%202%2C566%20Hospitals-4285F4.svg)](.)
 [![Cost](https://img.shields.io/badge/Prototype%20Cost-%E2%82%B90-success.svg)](.)
@@ -216,13 +216,12 @@ GET http://localhost:8000/hospitals/source
 
 ### Mobile (React Native + Expo)
 ```
-Framework:        React Native 0.74 + Expo SDK 51
+Framework:        React Native 0.85 + Expo SDK 56
 Language:         TypeScript
-Navigation:       React Navigation (NativeStack + BottomTab)
-State:            Zustand
+Navigation:       React Navigation (NativeStack)
 HTTP:             Axios
 Location:         expo-location
-Maps (deep link): Linking API → Google Maps / Apple Maps
+Maps (deep link): Linking API → Google Maps
 Storage:          AsyncStorage (token, user session)
 Real-time:        socket.io-client
 ```
@@ -230,13 +229,15 @@ Real-time:        socket.io-client
 ### Backend (Python)
 ```
 Framework:        FastAPI
-Language:         Python 3.9
+Language:         Python 3.12
 HTTP client:      httpx (Google Places proxy)
 Database:         SQLite (hospitals/blood banks) + PostgreSQL (users/donors)
 ML:               scikit-learn (GBR + RFC)
 Data:             pandas, numpy
 Model storage:    joblib
 Config:           python-dotenv
+Notifications:    Expo Push API
+SMS:              Fast2SMS
 ```
 
 ### Design System
@@ -362,67 +363,79 @@ cd vitallink
 ```bash
 cd backend
 
+# Copy environment config
+copy .env.example .env
+
 # Install Python dependencies
-pip3 install fastapi uvicorn httpx python-dotenv \
-             scikit-learn pandas numpy joblib \
-             python-socketio passlib python-jose pydantic
+pip install -r requirements.txt
 
-# (Optional) Train the ML model — takes ~20 seconds
-python3 -m ml.train_model
+# Train the ML model (first time only — ~20 seconds)
+python -m ml.train_model
 
-# Start the API server (no PostgreSQL required)
-python3 -m uvicorn hospitals_server:app --host 0.0.0.0 --port 8000 --reload
+# Start the full API server (includes auth, matching, tracking, Socket.IO)
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# Or for hospitals/blood banks only (no auth needed)
+python -m uvicorn hospitals_server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Verify it's running:
 ```
-http://localhost:8000/health          → { "status": "healthy" }
-http://localhost:8000/docs            → Swagger API explorer
-http://localhost:8000/hospitals/source → { "google_places": false, "source": "csv_sqlite" }
+http://localhost:8000/          → { "message": "VitalLink API", "status": "operational" }
+http://localhost:8000/docs      → Swagger API explorer (56 endpoints)
+http://localhost:8000/health    → { "status": "healthy" }
 ```
 
 ### Step 3 — Start the Mobile App
 ```bash
-cd mobile
+# Donor app
+cd mobile/donor-app
 npm install
+npx expo install expo-constants
+npx expo start
+
+# Patient app (in a separate terminal)
+cd mobile/patient-app
+npm install
+npx expo install expo-constants
 npx expo start
 ```
 
-- **On your phone** — install Expo Go, scan the QR code
-- **Web preview** — press `w` in the terminal
+- **On your phone** — install **Expo Go**, scan the QR code
+- **Android emulator** — press `a` in the terminal
+- Both apps must be on the **same Wi-Fi** as the backend
 
-### Step 4 — Login (Dummy / Testing)
-On the login screen tap **"Continue as Harsh (Demo)"** — this bypasses the API and logs you in with:
-- Name: `Harsh`
-- Phone: `8789893161`
-- Role: `patient`
-
-No backend or phone OTP needed for the UI demo.
+### Step 4 — Login (Development Mode)
+1. Enter a name and a valid 10-digit Indian phone number (e.g., `9876543210`)
+2. Select your blood group (donor app only)
+3. Tap **Get OTP** — in dev mode the OTP auto-fills (no SMS needed)
+4. Tap **Verify & register**
+5. You're logged in with a JWT token!
 
 ---
 
 ## 9. 🔧 Environment Variables
 
-### Backend — `backend/.env`
+### Backend — `backend/.env` (copy from `.env.example`)
 ```env
-# ── Google Places API (enables real hospital/blood bank data) ──────────────
-# Get key: https://console.cloud.google.com → APIs & Services → Credentials
-# Enable: "Places API"
+# ── Database (SQLite by default — no setup needed) ───────────────────────
+DATABASE_URL=sqlite:///./vitallink.db
+
+# ── JWT Secret ───────────────────────────────────────────────────────────
+# Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+JWT_SECRET_KEY=vitallink-dev-secret-change-in-production
+
+# ── Google Places API (enables real hospital data) ───────────────────────
 GOOGLE_PLACES_API_KEY=
 
-# ── PostgreSQL (required for donor/request features) ──────────────────────
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vitallink
+# ── Firebase Admin SDK (JSON string) ─────────────────────────────────────
+FIREBASE_SERVICE_ACCOUNT_JSON=
 ```
 
-### Mobile — `mobile/.env` (create if needed)
+### Mobile — `mobile/.env.local` (copy from `mobile/.env.example`)
 ```env
-# Backend API base URL — use your machine's local IP when testing on phone
-EXPO_PUBLIC_API_URL=http://192.168.x.x:8000
-
-# Firebase (for real OTP login)
-EXPO_PUBLIC_FIREBASE_API_KEY=
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+# Backend API base URL — use machine's local IP when testing on phone
+EXPO_PUBLIC_API_URL=http://192.168.0.188:8000
 ```
 
 ---

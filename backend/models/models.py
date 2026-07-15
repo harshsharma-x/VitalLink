@@ -9,7 +9,9 @@ class User(BaseModel):
     __tablename__ = "users"
 
     name = Column(String(255), nullable=False)
-    phone = Column(String(20), nullable=False, unique=True)
+    phone = Column(String(20), nullable=True, unique=True)      # Nullable now — Google users sign in without phone
+    email = Column(String(255), nullable=True, unique=True)      # Google email
+    google_id = Column(String(255), nullable=True, unique=True)  # Google 'sub' claim
     role = Column(String(20), nullable=False)
     push_token = Column(String(255), nullable=True)
 
