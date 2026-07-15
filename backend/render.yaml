@@ -2,23 +2,46 @@ services:
   - type: web
     name: vitallink-backend
     runtime: python
+    region: singapore
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:socket_app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
+      # ── Database (auto-provisioned PostgreSQL) ──
       - key: DATABASE_URL
         fromDatabase:
           name: vitallink-db
           property: connectionString
+
+      # ── JWT ──
       - key: JWT_SECRET_KEY
         generateValue: true
-      - key: FIREBASE_SERVICE_ACCOUNT_JSON
-        value: ""
-      - key: GOOGLE_PLACES_API_KEY
-        sync: false
+
+      # ── CORS — allows your Vercel-deployed app to call this backend ──
+      - key: CORS_ORIGINS
+        value: "https://vitallink-app.vercel.app,https://vitallink.vercel.app"
+
+      # ── Environment ──
+      - key: ENVIRONMENT
+        value: "production"
       - key: PYTHON_VERSION
         value: "3.11.0"
+
+      # ── Optional (set manually if needed) ──
+      # - key: FAST2SMS_API_KEY
+      #   value: ""
+      # - key: GOOGLE_CLIENT_ID
+      #   value: ""
+      # - key: REDIS_URL
+      #   value: ""
 
 databases:
   - name: vitallink-db
     databaseName: vitallink
     user: vitallink
+    plan: free
+    region: singapore
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow-all

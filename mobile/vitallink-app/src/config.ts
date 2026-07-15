@@ -25,9 +25,14 @@ function resolveApiUrl(): string {
   }
 
   // 3. Fallback — local dev (Expo Go / emulator on same machine)
+  if (extra?.localApiUrl) {
+    return extra.localApiUrl;
+  }
+
   return 'http://localhost:8000';
 }
 
 const url = resolveApiUrl();
 export const BASE_URL = url;
 export const SOCKET_URL = url;
+export const IS_PRODUCTION = url.includes('onrender.com');

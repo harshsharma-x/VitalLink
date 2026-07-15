@@ -12,9 +12,17 @@ import api from '../../api/api';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
+type TabId = 'home' | 'banks' | 'requests' | 'profile';
+
+const TABS: Array<{ id: TabId; label: string }> = [
+  { id: 'home', label: 'Home' },
+  { id: 'banks', label: 'Blood Banks' },
+  { id: 'requests', label: 'Requests' },
+  { id: 'profile', label: 'Profile' },
+];
+
 export default function HomeScreen({ navigation }: Props) {
   const [name, setName] = useState('');
-  const [activeTab, setActiveTab] = useState<'home' | 'banks' | 'requests' | 'profile'>('home');
 
   const registerPushToken = useCallback(async () => {
     try {
@@ -30,23 +38,20 @@ export default function HomeScreen({ navigation }: Props) {
     registerPushToken();
   }, [registerPushToken]);
 
-  const tabs = [
-    { id: 'home', label: 'Home' },
-    { id: 'banks', label: 'Blood Banks' },
-    { id: 'requests', label: 'Requests' },
-    { id: 'profile', label: 'Profile' },
-  ] as const;
-
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'banks': navigation.navigate('BloodBanks'); setActiveTab('home'); return null;
-      case 'requests': navigation.navigate('PatientHistory'); setActiveTab('home'); return null;
-      case 'profile': navigation.navigate('Profile'); setActiveTab('home'); return null;
-      default: return null;
+  const handleNav = (tabId: TabId) => {
+    switch (tabId) {
+      case 'banks':
+        navigation.navigate('BloodBanks');
+        break;
+      case 'requests':
+        navigation.navigate('PatientHistory');
+        break;
+      case 'profile':
+        navigation.navigate('Profile');
+        break;
+      // 'home' is the default, just stay
     }
   };
-
-  renderTab();
 
   return (
     <View style={{ flex: 1, backgroundColor: RS.fog }}>
@@ -104,20 +109,12 @@ export default function HomeScreen({ navigation }: Props) {
 
       {/* Bottom Nav */}
       <View style={s.bottomNav}>
-        {tabs.map(t => {
-          const isActive = activeTab === t.id;
-          return (
-            <TouchableOpacity key={t.id} style={s.navItem} onPress={() => {
-              if (t.id === 'banks') navigation.navigate('BloodBanks');
-              else if (t.id === 'requests') navigation.navigate('PatientHistory');
-              else if (t.id === 'profile') navigation.navigate('Profile');
-              else setActiveTab('home');
-            }}>
-              <View style={[s.navDot, { backgroundColor: isActive ? RS.accent : RS.faint }]} />
-              <Text style={[s.navLabel, { color: isActive ? RS.accent : RS.faint, fontWeight: isActive ? '700' : '500' }]}>{t.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        {TABS.map(t => (
+          <TouchableOpacity key={t.id} style={s.navItem} onPress={() => handleNav(t.id)}>
+            <View style={[s.navDot, { backgroundColor: RS.accent }]} />
+            <Text style={[s.navLabel, { color: RS.accent, fontWeight: '700' }]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );

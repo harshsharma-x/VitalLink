@@ -3,11 +3,12 @@ import re
 import random
 import hashlib
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
@@ -20,6 +21,22 @@ from models.models import User, Donor, OTPStore
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# ── Rate limiting helper per-phone ────────────────────────────────────────────
+_otp_rate: dict[str, list[float]] = {}
+
+def _check_otp_rate_limit(phone: str, max_per_hour: int = 5) -> None:
+    """Rate-limit OTP requests per phone number."""
+    now = time.time()
+    window_start = now - 3600
+    records = [t for t in _otp_rate.get(phone, []) if t > window_start]
+    if len(records) >= max_per_hour:
+        raise HTTPException(
+            status_code=429,
+            detail=f"OTP rate limit reached. Max {max_per_hour} OTPs per hour per number."
+        )
+    records.append(now)
+    _otp_rate[phone] = records
 
 
 # ── Google OAuth login ────────────────────────────────────────────────────────
@@ -154,10 +171,12 @@ def demo_login(request: DemoLoginRequest, db: Session = Depends(get_db)):
         db.add(user)
         db.flush()
         if request.role == "donor":
+            bg = request.blood_group or "O+"
             donor = Donor(
                 user_id=user.id,
-                blood_group=request.blood_group or "O+",
+                blood_group=bg,
                 availability=True,
+                reliability_score=80.0,
             )
             db.add(donor)
         db.commit()
@@ -170,15 +189,19 @@ def demo_login(request: DemoLoginRequest, db: Session = Depends(get_db)):
     token = create_access_token({"sub": str(user.id), "role": user.role, "phone": user.phone})
 
     donor_id = None
+    blood_group = None
     if user.role == "donor":
         donor = db.query(Donor).filter(Donor.user_id == user.id).first()
         if donor:
             donor_id = str(donor.id)
+            blood_group = donor.blood_group
 
     return {
         "token": token,
         "user_id": str(user.id),
         "donor_id": donor_id,
+        "blood_group": blood_group,
+        "name": user.name,
         "role": user.role,
     }
 
@@ -219,7 +242,7 @@ def _send_sms_fast2sms(phone: str, otp: str) -> bool:
     """Send OTP via Fast2SMS. Returns True if sent, False if key not configured."""
     api_key = os.getenv("FAST2SMS_API_KEY", "").strip()
     if not api_key:
-        logger.info("[DEV] OTP for +91%s → %s", phone, otp)
+        logger.info("[DEV] OTP for +91%s -> %s", phone, otp)
         return False
     try:
         r = httpx.get(
@@ -244,10 +267,13 @@ def _send_sms_fast2sms(phone: str, otp: str) -> bool:
 
 @router.post("/send-otp", status_code=status.HTTP_200_OK)
 def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
-    """Generate and send a 6-digit OTP to the given phone number."""
+    """Generate and send a 6-digit OTP to the given phone number (rate-limited)."""
     phone = request.phone.strip()
     if not re.match(r'^[6-9]\d{9}$', phone):
         raise HTTPException(status_code=400, detail="Enter a valid 10-digit Indian mobile number")
+
+    # Rate limit: max 5 OTPs per phone per hour
+    _check_otp_rate_limit(phone, max_per_hour=5)
 
     otp = str(random.randint(100000, 999999))
     otp_hash = hashlib.sha256(otp.encode()).hexdigest()
@@ -264,7 +290,7 @@ def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
     if not sms_sent:
         # Dev mode: return the OTP so the app can auto-fill it
         resp["dev_otp"] = otp
-        resp["message"] = "OTP generated (SMS not configured — dev_otp visible for testing)"
+        resp["message"] = "OTP generated (SMS not configured - dev_otp visible for testing)"
     else:
         resp["message"] = "OTP sent via SMS"
     return resp

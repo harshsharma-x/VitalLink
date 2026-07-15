@@ -1,5 +1,4 @@
 import logging
-import threading
 from fastapi import APIRouter, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -14,8 +13,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/requests", tags=["Emergency Requests"])
 
 
-def _run_matching(request_id: UUID) -> None:
-    """Run matching in a background thread with its own DB session."""
+def _run_matching_background(request_id: UUID) -> None:
+    """Run matching in a background task with its own DB session."""
     db = get_db_for_task()
     try:
         from services.matching_service import start_matching
@@ -29,13 +28,14 @@ def _run_matching(request_id: UUID) -> None:
 @router.post("/", response_model=EmergencyRequestResponse, status_code=status.HTTP_201_CREATED)
 def create(
     request_data: EmergencyRequestCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     req = create_request(db, current_user.id, request_data)
 
-    # Kick off matching immediately in a background thread
-    threading.Thread(target=_run_matching, args=(req.id,), daemon=True).start()
+    # Kick off matching via FastAPI BackgroundTasks (safe, managed lifecycle)
+    background_tasks.add_task(_run_matching_background, req.id)
 
     # Anti-corruption tout detection (non-fatal)
     try:
@@ -52,7 +52,7 @@ def create(
         result = analyze_tout_pattern(current_user.phone)
         if result.get("is_suspicious"):
             logger.warning(
-                "TOUT ALERT — phone %s flagged: %s requests/1h, %s hospitals",
+                "TOUT ALERT - phone %s flagged: %s requests/1h, %s hospitals",
                 current_user.phone,
                 result.get("requests_last_1h") or result.get("features", {}).get("requests_1h"),
                 result.get("unique_hospitals") or result.get("features", {}).get("unique_hospitals"),

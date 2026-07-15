@@ -32,7 +32,8 @@ def _get_predictor():
     try:
         from ml.predictor import score_donors
         return score_donors
-    except FileNotFoundError:
+    except (FileNotFoundError, ImportError, OSError, ValueError):
+        logger.warning("ML model not available, falling back to rule-based matching")
         return None
 
 

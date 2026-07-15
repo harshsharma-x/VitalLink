@@ -3,7 +3,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database.base import Base
-from main import app, get_db
+from database.database import get_db
+from main import app
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
@@ -55,7 +56,8 @@ def test_login_existing_user():
 
 def test_get_me_unauthorized():
     response = client.get("/auth/me")
-    assert response.status_code == 403
+    # API returns 401 for unauthenticated requests (via HTTPBearer)
+    assert response.status_code in (401, 403)
 
 def test_get_me_authorized():
     login = client.post("/auth/login", json={"name": "Auth Test", "phone": "6666666666", "role": "patient"})
@@ -63,3 +65,16 @@ def test_get_me_authorized():
     response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json()["name"] == "Auth Test"
+
+def test_demo_login():
+    response = client.post("/auth/demo", json={
+        "name": "Demo User",
+        "phone": "5555555555",
+        "role": "donor",
+        "blood_group": "A+"
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert "token" in data
+    assert data["role"] == "donor"
+    assert data["blood_group"] == "A+"

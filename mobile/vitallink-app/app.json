@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "VitalLink",
-    "slug": "vitallink-donor",
+    "slug": "vitallink-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -21,9 +21,7 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "VIBRATE"
       ]
     },
     "plugins": [
@@ -48,11 +46,7 @@
     "newArchEnabled": true,
     "extra": {
       "apiUrl": "http://localhost:8000",
-      "googleClientId": {
-        "web": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
-        "ios": "YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
-        "android": "YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com"
-      },
+      "productionApiUrl": "https://vitallink-backend.onrender.com",
       "eas": {
         "projectId": "563ea39a-1ec2-4ad7-b492-e4d783f1310a"
       }

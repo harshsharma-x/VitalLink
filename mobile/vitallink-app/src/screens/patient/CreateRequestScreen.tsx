@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Modal, FlatList, ActivityIndicator,
+  Modal, FlatList, ActivityIndicator, Alert,
 } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,18 +16,49 @@ type Props = { navigation: NativeStackNavigationProp<any> };
 
 const GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 const URGENCIES: Array<[string, string, string, string]> = [
-  ['critical',  'Critical — now',  RS.soft,   RS.accent],
-  ['day',       'Within 24 hrs',   RS.samber,  RS.amber],
-  ['planned',   'Planned',         RS.steal,   RS.teal],
+  ['critical',  'Critical — now',   RS.soft,   RS.accent],
+  ['day',       'Within 24 hrs',    RS.samber,  RS.amber],
+  ['planned',   'Planned',          RS.steal,   RS.teal],
 ];
 
 type Hospital = { id: string | number; name: string; address: string; distance_km: number };
+
+// ── Validation helper ────────────────────────────────────────────────────────
+type ValidationErrors = {
+  group?: string;
+  units?: string;
+  hospital?: string;
+  urgency?: string;
+};
+
+function validate(
+  group: string,
+  units: number,
+  hospital: Hospital | null,
+  urgency: string,
+): ValidationErrors {
+  const errors: ValidationErrors = {};
+  if (!group || !GROUPS.includes(group)) {
+    errors.group = 'Please select a blood group';
+  }
+  if (!units || units < 1 || units > 10) {
+    errors.units = 'Units must be between 1 and 10';
+  }
+  if (!hospital) {
+    errors.hospital = 'Please select a hospital';
+  }
+  if (!urgency || !['critical', 'day', 'planned'].includes(urgency)) {
+    errors.urgency = 'Please select an urgency level';
+  }
+  return errors;
+}
 
 export default function CreateRequestScreen({ navigation }: Props) {
   const [group, setGroup] = useState('O+');
   const [units, setUnits] = useState(2);
   const [urgency, setUrgency] = useState('critical');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<ValidationErrors>({});
 
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
@@ -69,7 +100,17 @@ export default function CreateRequestScreen({ navigation }: Props) {
   }, []);
 
   const handleSubmit = async () => {
+    // Validate form
+    const validationErrors = validate(group, units, selectedHospital, urgency);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      Alert.alert('Please fix the following errors', Object.values(validationErrors).join('\n'));
+      return;
+    }
+
     if (!selectedHospital) return;
+
     setLoading(true);
     try {
       const res = await api.post('/requests/', {
@@ -83,7 +124,10 @@ export default function CreateRequestScreen({ navigation }: Props) {
       });
       const request_id = res.data?.id ?? res.data?.request_id;
       navigation.replace('Searching', { blood_group: group, units, urgency, request_id });
-    } catch {
+    } catch (e: any) {
+      const errMsg = e?.response?.data?.detail || e?.message || 'Could not create request';
+      Alert.alert('Error', errMsg);
+      // Still navigate to searching for demo purposes
       navigation.replace('Searching', { blood_group: group, units, urgency });
     } finally {
       setLoading(false);
@@ -102,12 +146,13 @@ export default function CreateRequestScreen({ navigation }: Props) {
           <RSLabel>Blood group needed</RSLabel>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {GROUPS.map(g => (
-              <TouchableOpacity key={g} onPress={() => setGroup(g)}
+              <TouchableOpacity key={g} onPress={() => { setGroup(g); setErrors(prev => ({ ...prev, group: undefined })); }}
                 style={[s.groupBtn, { borderColor: g === group ? RS.accent : RS.line, backgroundColor: g === group ? RS.soft : RS.white, width: '23%' }]}>
                 <Text style={[s.groupText, { color: g === group ? RS.accent : RS.mid }]}>{g}</Text>
               </TouchableOpacity>
             ))}
           </View>
+          {errors.group && <Text style={s.errorText}>{errors.group}</Text>}
         </View>
 
         {/* Units */}
@@ -123,6 +168,7 @@ export default function CreateRequestScreen({ navigation }: Props) {
                 <Text style={s.stepBtnText}>+</Text>
               </TouchableOpacity>
             </View>
+            {errors.units && <Text style={s.errorText}>{errors.units}</Text>}
           </View>
           <View style={{ flex: 1 }}>
             <RSLabel>Patient Hb</RSLabel>
@@ -135,7 +181,7 @@ export default function CreateRequestScreen({ navigation }: Props) {
         {/* Hospital picker */}
         <View>
           <RSLabel>Hospital</RSLabel>
-          <TouchableOpacity style={s.hospitalBtn} onPress={() => setShowPicker(true)} activeOpacity={0.75} disabled={loadingHospitals}>
+          <TouchableOpacity style={[s.hospitalBtn, errors.hospital ? { borderColor: RS.accent } : {}]} onPress={() => setShowPicker(true)} activeOpacity={0.75} disabled={loadingHospitals}>
             {loadingHospitals ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <ActivityIndicator size="small" color={RS.accent} />
@@ -156,6 +202,7 @@ export default function CreateRequestScreen({ navigation }: Props) {
               <Text style={{ fontSize: 13, color: RS.mid }}>Tap to select a hospital</Text>
             )}
           </TouchableOpacity>
+          {errors.hospital && <Text style={s.errorText}>{errors.hospital}</Text>}
         </View>
 
         {/* Urgency */}
@@ -163,19 +210,20 @@ export default function CreateRequestScreen({ navigation }: Props) {
           <RSLabel>How urgent?</RSLabel>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {URGENCIES.map(([id, label, bg, fg]) => (
-              <TouchableOpacity key={id} onPress={() => setUrgency(id)}
+              <TouchableOpacity key={id} onPress={() => { setUrgency(id); setErrors(prev => ({ ...prev, urgency: undefined })); }}
                 style={[s.urgencyBtn, { borderColor: urgency === id ? fg : RS.line, backgroundColor: urgency === id ? bg : RS.white }]}>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: urgency === id ? fg : RS.mid, textAlign: 'center' }}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
+          {errors.urgency && <Text style={s.errorText}>{errors.urgency}</Text>}
         </View>
 
         <Text style={s.privacy}>Your phone number stays masked. Donors see only the hospital location.</Text>
       </ScrollView>
 
       <View style={{ padding: 18, paddingBottom: 24, backgroundColor: RS.white, borderTopWidth: 1, borderTopColor: RS.line }}>
-        <RSBtn onPress={handleSubmit} accent={RS.accent} big loading={loading} disabled={!selectedHospital || loadingHospitals}>
+        <RSBtn onPress={handleSubmit} accent={RS.accent} big loading={loading} disabled={loading}>
           Send emergency request
         </RSBtn>
       </View>
@@ -196,7 +244,7 @@ export default function CreateRequestScreen({ navigation }: Props) {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[s.hospitalRow, selectedHospital?.id === item.id && { borderColor: RS.accent, backgroundColor: RS.soft }]}
-                onPress={() => { setSelectedHospital(item); setShowPicker(false); }}
+                onPress={() => { setSelectedHospital(item); setShowPicker(false); setErrors(prev => ({ ...prev, hospital: undefined })); }}
                 activeOpacity={0.75}
               >
                 <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: selectedHospital?.id === item.id ? RS.accent : RS.faint, flexShrink: 0, marginTop: 3 }} />
@@ -234,4 +282,5 @@ const s = StyleSheet.create({
   privacy: { fontSize: 11, color: RS.faint, lineHeight: 16 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18, paddingTop: 20, backgroundColor: RS.white, borderBottomWidth: 1, borderBottomColor: RS.line },
   modalTitle: { fontSize: 16, fontWeight: '700', color: RS.ink },
+  errorText: { fontSize: 11, color: RS.accent, fontWeight: '500', marginTop: 4 },
 });

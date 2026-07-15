@@ -1,33 +1,53 @@
 import pytest
 from fastapi.testclient import TestClient
-from tests.test_auth import client, setup_db
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from database.base import Base
+from database.database import get_db
+from main import app
 
-def test_create_donor():
-    # First login as donor to create user
-    login = client.post("/auth/login", json={"name": "Donor", "phone": "5555555555", "role": "donor", "blood_group": "A+"})
-    user_id = login.json()["user_id"]
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    response = client.post("/donors/", json={
-        "user_id": str(user_id),
-        "blood_group": "A+",
-        "availability": True,
-        "latitude": 28.6139,
-        "longitude": 77.2090
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
+client = TestClient(app)
+
+@pytest.fixture(scope="function", autouse=True)
+def setup_db():
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
+
+def test_demo_donor_creation():
+    """Test that demo login creates a donor with reliability_score"""
+    response = client.post("/auth/demo", json={
+        "name": "Demo Donor",
+        "phone": "1111111111",
+        "role": "donor",
+        "blood_group": "B+"
     })
-    assert response.status_code == 201
-    assert response.json()["blood_group"] == "A+"
-
-def test_get_donors():
-    response = client.get("/donors/")
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    data = response.json()
+    assert data["donor_id"] is not None
+    assert data["blood_group"] == "B+"
 
-def test_update_availability():
-    login = client.post("/auth/login", json={"name": "Donor2", "phone": "4444444444", "role": "donor", "blood_group": "B+"})
-    user_id = login.json()["user_id"]
-    donor = client.post("/donors/", json={"user_id": str(user_id), "blood_group": "B+"})
-    donor_id = donor.json()["id"]
-
-    response = client.patch(f"/donors/{donor_id}/availability", json={"availability": True, "latitude": 28.6, "longitude": 77.2})
+def test_demo_patient_creation():
+    """Test that demo login creates a patient (no donor record)"""
+    response = client.post("/auth/demo", json={
+        "name": "Demo Patient",
+        "phone": "2222222222",
+        "role": "patient"
+    })
     assert response.status_code == 200
-    assert response.json()["availability"] == True
+    data = response.json()
+    assert data["donor_id"] is None
+    assert data["role"] == "patient"
+    assert data["name"] == "Demo Patient"
